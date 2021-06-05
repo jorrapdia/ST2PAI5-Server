@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, request
 from service import insert_order, verify_signature, validate_order
+from report import update_KPI
 from db import create_tables
 import ssl
 from ratelimit import limits
 from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 app = Flask(__name__)
@@ -47,9 +49,13 @@ def post_order():
 
             return jsonify({'message': 'Petición INCORRECTA'}), 400
 
-    
-    
 
-if __name__ == '__main__':  
+if __name__ == '__main__':
+    
     create_tables()
+
+    sched = BackgroundScheduler(daemon=True)
+    sched.add_job(update_KPI, 'interval', weeks=8)
+    sched.start()
+
     app.run(host = '127.0.0.1', port = 8081, debug = False, ssl_context=context)
