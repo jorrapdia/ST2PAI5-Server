@@ -1,9 +1,6 @@
-import binascii
-
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA512
-from base64 import b64decode
 from datetime import datetime, timedelta
 import os
 import openpyxl
@@ -13,32 +10,36 @@ import db as database
 from openpyxl.styles import Side, Border
 
 
-def validate_order(order):
+def validate_order(quantities):
     res = True
-    for key in order.keys():
-        if order[key] < 0 | order[key] > 300:
+    for quantity in quantities:
+        if int(quantity) < 0 or int(quantity) > 300:
             res = False
+    return res
 
+
+def verify_user(username, public_key):
+    res = True
+    public_key_db = database.get_public_key_by_client_number(username)
+    if public_key_db is None:
+        database.insert_user(username, public_key)
+    else:
+        res = public_key_db == public_key
     return res
 
 
 def verify_signature(order, signature, public_key_pem):
-
-    public_key_bytes = binascii.unhexlify(public_key_pem)
-    public_key = RSA.import_key(public_key_bytes)
+    public_key = RSA.import_key(bytearray.fromhex(public_key_pem))
     signer = PKCS1_v1_5.new(public_key)
     digest = SHA512.new()
-    digest.update(b64decode(order))
+    digest.update(order.encode())
+    return signer.verify(digest, bytearray.fromhex(signature))
 
-    return signer.verify(digest, b64decode(signature))
 
-
-def KPI():
+def kpi():
     db = database.get_db()
     cursor = db.cursor()
-
     now = datetime.now()
-
     p3_query = "SELECT COUNT(*) FROM orders WHERE (created_at >=" + (now - timedelta(months=2)).strftime(
         '%d/%m/%Y, %H:%M:%S') + "AND created_at <=" + now.strftime('%d/%m/%Y, %H:%M:%S') + ") AND verify = 'True'"
     p2_query = "SELECT COUNT(*) FROM orders WHERE (created_at >=" + (now - timedelta(months=3)).strftime(
@@ -49,7 +50,6 @@ def KPI():
         '%d/%m/%Y, %H:%M:%S') + ") AND verify = 'True'"
 
     total_query = "SELECT COUNT(*) FROM orders"
-
     p3 = cursor.execute(p3_query).fetchone()[0]
     p2 = cursor.execute(p2_query).fetchone()[0]
     p1 = cursor.execute(p1_query).fetchone()[0]
@@ -63,7 +63,7 @@ def KPI():
     if (p3_ratio > p1_ratio and p3_ratio > p2_ratio) or (p3_ratio > p1_ratio and p3_ratio == p2_ratio) or (
             p3_ratio == p1_ratio and p3_ratio > p2_ratio):
         tendencia = '+'
-    elif (p3_ratio < p1_ratio or p3_ratio < p2_ratio):
+    elif p3_ratio < p1_ratio or p3_ratio < p2_ratio:
         tendencia = '-'
     else:
         tendencia = '0'
@@ -71,12 +71,11 @@ def KPI():
     return p3_ratio, tendencia
 
 
-def update_KPI():
+def update_kpi():
     dirname = os.path.dirname(__file__)
     filename = 'KPI.xlsx'
     pathname = os.path.join(dirname, filename)
-
-    ratio, tendencia = KPI()
+    ratio, tendencia = kpi()
 
     if os.path.exists(pathname):
         workbook = openpyxl.load_workbook(filename)
@@ -93,7 +92,6 @@ def update_KPI():
         worksheet.cell(row=max_row + 1, column=3).border = thin_border
         worksheet.cell(row=max_row + 1, column=4).value = tendencia
         worksheet.cell(row=max_row + 1, column=4).border = thin_border
-
         workbook.save(filename)
 
     else:
@@ -111,12 +109,9 @@ def update_KPI():
         worksheet.merge_range("B2:G2", 'KPI Hotel', title_format)
         worksheet.write(2, 1, 'Fecha', column_title_format)
         worksheet.write(3, 1, datetime.now().strftime("%d/%m/%Y %H:%M:%S"), data_format)
-
         worksheet.write(2, 2, 'Ratio', column_title_format)
         worksheet.write(3, 2, str(ratio) + '%', data_format)
-
         worksheet.write(2, 3, 'Tendencia', column_title_format)
         worksheet.write(3, 3, tendencia, data_format)
-
         workbook.close()
     print('SERVER INFO: KPI was updated')

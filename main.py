@@ -4,43 +4,44 @@ import _thread
 import logging
 import db
 
-from service import verify_signature
+from service import *
 from datetime import datetime
 
-
-def is_valid_user(username, public_key):
-    res = True
-    public_key_db = db.get_public_key_by_client_number(username)
-    if public_key_db is None:
-        db.insert_user(username, public_key)
-    else:
-        res = public_key_db == public_key
-    return res
+ERROR_MSG = "El mensaje ha sido descartado por un error en su formato"
 
 
 def threaded_client(connection):
     while True:
-        data = connection.recv(2048)
+        data = connection.recv(10048)
         if not data:
             continue
         received_info = str(data, 'utf-8')
         received_info_sp = received_info.split(';')
-        if len(received_info_sp) == 3:
-            message_sp = received_info_sp[0].strip().split(" ")
-            if len(message_sp) == 5 and is_valid_user(message_sp[4].strip(),
-                                                      received_info_sp[1].strip()) and verify_signature(
-                    received_info_sp[0].strip(), received_info_sp[2].strip(), received_info_sp[1].strip()):
-                db.insert_order(message_sp[0].strip(), message_sp[1].strip(), message_sp[2].strip(),
-                                message_sp[3].strip(), datetime.now().timestamp(), message_sp[4].strip())
-                print(
-                    '{Username: ' + received_info_sp[0].strip() + ', Message: ' + received_info_sp[2].strip() + '}')
-                connection.sendall(bytes('Message saved successfully\r\n', 'utf-8'))
+        order = received_info_sp[0].strip()
+        order_data = order.split(" ")
+        if len(received_info_sp) == 3 and len(order_data) == 5:
+            public_key = received_info_sp[1].strip()
+            signature = received_info_sp[2].strip()
+            beds_number = order_data[0].strip()
+            tables_number = order_data[1].strip()
+            chairs_number = order_data[2].strip()
+            armchairs_number = order_data[3].strip()
+            client_number = order_data[4].strip()
+
+            user_is_valid = verify_user(client_number, public_key)
+            sign_is_valid = verify_signature(order, signature, public_key)
+            order_is_valid = validate_order([beds_number, tables_number, chairs_number, armchairs_number])
+            if user_is_valid and sign_is_valid and order_is_valid:
+                db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
+                                client_number)
+                print('{Signature: ' + signature + ', Order: ' + order + '}')
+                connection.sendall(bytes('Pedido realizado correctamente\r\n', 'utf-8'))
             else:
-                print('The message has been discarded due to an error in the format')
-                connection.sendall(bytes('The message has been discarded due to an error in the format\r\n', 'utf-8'))
+                print(ERROR_MSG)
+                connection.sendall(bytes(ERROR_MSG + '\r\n', 'utf-8'))
         else:
-            print('The message has been discarded due to an error in the format')
-            connection.sendall(bytes('The message has been discarded due to an error in the format\r\n', 'utf-8'))
+            print(ERROR_MSG)
+            connection.sendall(bytes(ERROR_MSG + '\r\n', 'utf-8'))
         break
 
 
@@ -50,7 +51,7 @@ def tls13_server():
     context.load_cert_chain(keyfile='certs/server.key', certfile='certs/server.crt')
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('192.168.1.10', 8443))
+        s.bind(('192.168.100.5', 8443))
         s.listen(1)
         print('Server up, waiting for a connection')
         with context.wrap_socket(s, server_side=True) as ssock:

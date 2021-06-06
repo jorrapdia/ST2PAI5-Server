@@ -3,14 +3,12 @@ import sqlite3
 
 def get_db():
     conn = sqlite3.connect('hotel.db')
-
     return conn
 
 
 def create_tables():
     db = get_db()
     cursor = db.cursor()
-
     cursor.execute('''CREATE TABLE IF NOT EXISTS users(
                                 username TEXT PRIMARY KEY,
                                 public_key TEXT UNIQUE);''')
@@ -22,7 +20,6 @@ def create_tables():
                                 order_date TIMESTAMP,
                                 user_id TEXT,
                                 FOREIGN KEY(user_id) REFERENCES users(username));''')
-
     db.commit()
 
 
@@ -39,8 +36,10 @@ def get_public_key_by_client_number(client_number):
     cursor = db.cursor()
     statement = "SELECT public_key FROM users WHERE username = ?"
     cursor.execute(statement, [client_number])
-
-    return cursor.fetchone()[0]
+    res = cursor.fetchone()
+    if res is not None:
+        res = res[0]
+    return res
 
 
 def insert_user(username, public_key):
