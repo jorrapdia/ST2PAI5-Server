@@ -19,15 +19,16 @@ def create_tables():
                                 armchairs INTEGER,
                                 order_date TIMESTAMP,
                                 user_id TEXT,
+                                valid INTEGER
                                 FOREIGN KEY(user_id) REFERENCES users(username));''')
     db.commit()
 
 
-def insert_order(beds, tables, chairs, armchairs, order_date, user_id):
+def insert_order(beds, tables, chairs, armchairs, order_date, user_id, valid):
     db = get_db()
     cursor = db.cursor()
-    statement = 'INSERT INTO orders(beds, tables, chairs, armchairs, order_date, user_id) VALUES(?, ?, ?, ?, ?, ?)'
-    cursor.execute(statement, [beds, tables, chairs, armchairs, order_date, user_id])
+    statement = 'INSERT INTO orders(beds, tables, chairs, armchairs, order_date, user_id, valid) VALUES(?, ?, ?, ?, ?, ?, ?)'
+    cursor.execute(statement, [beds, tables, chairs, armchairs, order_date, user_id, valid])
     db.commit()
 
 

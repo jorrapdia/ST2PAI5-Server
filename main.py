@@ -33,13 +33,16 @@ def threaded_client(connection):
             order_is_valid = validate_order([beds_number, tables_number, chairs_number, armchairs_number])
             if user_is_valid and sign_is_valid and order_is_valid:
                 db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
-                                client_number)
+                                client_number, 1)
                 print('{Signature: ' + signature + ', Order: ' + order + '}')
                 connection.sendall(bytes('Pedido realizado correctamente\r\n', 'utf-8'))
             else:
+                db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
+                                client_number, 0)
                 print(ERROR_MSG)
                 connection.sendall(bytes(ERROR_MSG + '\r\n', 'utf-8'))
         else:
+            db.insert_order(None, None, None, None, datetime.now().timestamp(), None, 0)
             print(ERROR_MSG)
             connection.sendall(bytes(ERROR_MSG + '\r\n', 'utf-8'))
         break
@@ -51,7 +54,7 @@ def tls13_server():
     context.load_cert_chain(keyfile='certs/server.key', certfile='certs/server.crt')
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('192.168.100.5', 8443))
+        s.bind(('192.168.1.10', 8443))
         s.listen(1)
         print('Server up, waiting for a connection')
         with context.wrap_socket(s, server_side=True) as ssock:

@@ -6,6 +6,7 @@ import os
 import openpyxl
 import xlsxwriter
 import db as database
+import dateutil.relativedelta
 
 from openpyxl.styles import Side, Border
 
@@ -40,14 +41,15 @@ def kpi():
     db = database.get_db()
     cursor = db.cursor()
     now = datetime.now()
-    p3_query = "SELECT COUNT(*) FROM orders WHERE (created_at >=" + (now - timedelta(months=2)).strftime(
-        '%d/%m/%Y, %H:%M:%S') + "AND created_at <=" + now.strftime('%d/%m/%Y, %H:%M:%S') + ") AND verify = 'True'"
-    p2_query = "SELECT COUNT(*) FROM orders WHERE (created_at >=" + (now - timedelta(months=3)).strftime(
-        '%d/%m/%Y, %H:%M:%S') + "AND created_at <=" + (now - timedelta(months=1)).strftime(
-        '%d/%m/%Y, %H:%M:%S') + ") AND verify = 'True'"
-    p1_query = "SELECT COUNT(*) FROM orders WHERE (created_at >=" + (now - timedelta(months=4)).strftime(
-        '%d/%m/%Y, %H:%M:%S') + "AND created_at <=" + (now - timedelta(months=2)).strftime(
-        '%d/%m/%Y, %H:%M:%S') + ") AND verify = 'True'"
+    p3_query = "SELECT COUNT(*) FROM orders WHERE (order_date >= " + str(
+        (now - dateutil.relativedelta.relativedelta(months=2)).timestamp()) + " AND created_at <= " + str(
+        now.timestamp()) + ")"
+    p2_query = "SELECT COUNT(*) FROM orders WHERE (order_date >= " + str(
+        (now - dateutil.relativedelta.relativedelta(months=3)).timestamp()) + " AND created_at <= " + str(
+        (now - dateutil.relativedelta.relativedelta(months=1)).timestamp()) + ")"
+    p1_query = "SELECT COUNT(*) FROM orders WHERE (order_date >= " + str(
+        (now - dateutil.relativedelta.relativedelta(months=4)).timestamp()) + " AND created_at <= " + str(
+        (now - dateutil.relativedelta.relativedelta(months=2)).timestamp()) + ")"
 
     total_query = "SELECT COUNT(*) FROM orders"
     p3 = cursor.execute(p3_query).fetchone()[0]
