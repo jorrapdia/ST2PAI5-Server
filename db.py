@@ -19,7 +19,7 @@ def create_tables():
                                 armchairs INTEGER,
                                 order_date TIMESTAMP,
                                 user_id TEXT,
-                                valid INTEGER
+                                valid INTEGER,
                                 FOREIGN KEY(user_id) REFERENCES users(username));''')
     db.commit()
 
