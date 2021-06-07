@@ -49,6 +49,6 @@ def insert_user(username, public_key):
         connection.cursor().execute(
             'INSERT INTO users(username, public_key) VALUES(?, ?)', [username, public_key])
         connection.commit()
-        print("INFO: User inserted in database.")
+        print("INFO: Usuario insertado en base de datos")
     finally:
         connection.close()
