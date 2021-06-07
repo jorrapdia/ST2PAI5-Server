@@ -7,7 +7,7 @@ import db
 from service import *
 from datetime import datetime
 
-ERROR_MSG = "El mensaje ha sido descartado por un error en su formato"
+ERROR_MSG = "Peticion INCORRECTA"
 
 
 def threaded_client(connection):
@@ -35,7 +35,7 @@ def threaded_client(connection):
                 db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
                                 client_number, 1)
                 print('{Signature: ' + signature + ', Order: ' + order + '}')
-                connection.sendall(bytes('Pedido realizado correctamente\r\n', 'utf-8'))
+                connection.sendall(bytes('Peticion OK\r\n', 'utf-8'))
             else:
                 db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
                                 client_number, 0)
@@ -54,7 +54,7 @@ def tls13_server():
     context.load_cert_chain(keyfile='certs/server.key', certfile='certs/server.crt')
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('192.168.1.10', 8443))
+        s.bind(('192.168.100.5', 8443))
         s.listen(1)
         print('Server up, waiting for a connection')
         with context.wrap_socket(s, server_side=True) as ssock:
