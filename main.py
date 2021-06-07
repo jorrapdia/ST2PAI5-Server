@@ -1,13 +1,19 @@
+import os
+import random
 import socket
 import ssl
 import _thread
 import logging
+
 import db
+import schedule
+import time
 
 from service import *
 from datetime import datetime
 
 ERROR_MSG = "Peticion INCORRECTA"
+c = config.Config()
 
 
 def threaded_client(connection):
@@ -27,6 +33,9 @@ def threaded_client(connection):
             chairs_number = order_data[2].strip()
             armchairs_number = order_data[3].strip()
             client_number = order_data[4].strip()
+
+            if c.test and random.randint(0, 1) > 0:
+                order = "fail"
 
             user_is_valid = verify_user(client_number, public_key)
             sign_is_valid = verify_signature(order, signature, public_key)
@@ -54,7 +63,7 @@ def tls13_server():
     context.load_cert_chain(keyfile='certs/server.key', certfile='certs/server.crt')
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('192.168.100.5', 8443))
+        s.bind((c.server, c.port))
         s.listen(1)
         print('Server up, waiting for a connection')
         with context.wrap_socket(s, server_side=True) as ssock:
@@ -65,6 +74,20 @@ def tls13_server():
                 logging.info('Closing connection')
 
 
+def call_kpi():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+
 if __name__ == '__main__':
+    if os.path.exists("kpi.txt"):
+        os.remove("kpi.txt")
     db.create_tables()
+    if c.test:
+        schedule.every(1).minutes.do(update_kpi)
+    else:
+        schedule.every().day.at("08:00").do(update_kpi)
+    _thread.start_new_thread(call_kpi, ())
     tls13_server()
+

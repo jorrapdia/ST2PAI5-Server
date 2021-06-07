@@ -2,8 +2,14 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA512
 from datetime import datetime
+from datetime import timedelta
+
+import config
 import db as database
 import dateutil.relativedelta
+
+i = 0
+c = config.Config()
 
 
 def validate_order(quantities):
@@ -33,46 +39,55 @@ def verify_signature(order, signature, public_key_pem):
 
 
 def kpi():
+    global i
     db = database.get_db()
     cursor = db.cursor()
     now = datetime.now()
 
-    p3_query = "SELECT COUNT(*) FROM orders WHERE (order_date >= " + str(
-        (now - dateutil.relativedelta.relativedelta(months=2)).timestamp()) + " AND created_at <= " + str(
+    orders_last_month_query = "SELECT valid FROM orders WHERE (order_date >= " + str(
+        (now - get_timedelta(1)).timestamp()) + " AND order_date <= " + str(
         now.timestamp()) + ")"
-    p2_query = "SELECT COUNT(*) FROM orders WHERE (order_date >= " + str(
-        (now - dateutil.relativedelta.relativedelta(months=3)).timestamp()) + " AND created_at <= " + str(
-        (now - dateutil.relativedelta.relativedelta(months=1)).timestamp()) + ")"
-    p1_query = "SELECT COUNT(*) FROM orders WHERE (order_date >= " + str(
-        (now - dateutil.relativedelta.relativedelta(months=4)).timestamp()) + " AND created_at <= " + str(
-        (now - dateutil.relativedelta.relativedelta(months=2)).timestamp()) + ")"
-    total_query = "SELECT COUNT(*) FROM orders"
+    orders_previous_month_query = "SELECT valid FROM orders WHERE (order_date >= " + str(
+        (now - get_timedelta(2)).timestamp()) + " AND order_date <= " + str(
+        (now - get_timedelta(1)).timestamp()) + ")"
+    orders_previous_previous_month_query = "SELECT valid FROM orders WHERE (order_date >= " + str(
+        (now - get_timedelta(3)).timestamp()) + " AND order_date <= " + str(
+        (now - get_timedelta(2)).timestamp()) + ")"
 
-    p3 = cursor.execute(p3_query).fetchone()[0]
-    p2 = cursor.execute(p2_query).fetchone()[0]
-    p1 = cursor.execute(p1_query).fetchone()[0]
-    total = cursor.execute(total_query).fetchone()[0]
+    orders_last_month = cursor.execute(orders_last_month_query).fetchall()
+    orders_previous_month = cursor.execute(orders_previous_month_query).fetchall()
+    orders_previous_previous_month = cursor.execute(orders_previous_previous_month_query).fetchall()
 
-    p3_ratio = (p3 / total) * 100
-    p2_ratio = (p2 / total) * 100
-    p1_ratio = (p1 / total) * 100
+    p3_ratio = len(list(filter(lambda x: x[0] > 0, orders_last_month))) / len(orders_last_month) if len(
+        orders_last_month) > 0 else 0
+    p2_ratio = len(list(filter(lambda x: x[0] > 0, orders_previous_month))) / len(orders_previous_month) if len(
+        orders_previous_month) > 0 else 0
+    p1_ratio = len(list(filter(lambda x: x[0] > 0, orders_previous_previous_month))) / len(orders_previous_previous_month) if len(
+        orders_previous_previous_month) > 0 else 0
 
-    if (p3_ratio > p1_ratio and p3_ratio > p2_ratio) or (p3_ratio > p1_ratio and p3_ratio == p2_ratio) or (
-            p3_ratio == p1_ratio and p3_ratio > p2_ratio):
+    if i > 1 and ((p3_ratio > p1_ratio and p3_ratio > p2_ratio) or (p3_ratio > p1_ratio and p3_ratio == p2_ratio) or (
+            p3_ratio == p1_ratio and p3_ratio > p2_ratio)):
         tendencia = '+'
-    elif p3_ratio < p1_ratio or p3_ratio < p2_ratio:
+    elif i > 1 and (p3_ratio < p1_ratio or p3_ratio < p2_ratio):
         tendencia = '-'
     else:
         tendencia = '0'
+        i += 1
 
     return p3_ratio, tendencia
 
 
-def update_kpi():
-    ratio, tendencia = kpi()
-    f = open("kpi.txt", "w+")
-    f.write(
-        "Fecha: " + datetime.now().strftime("%B (%Y)") + " - Ratio: " + str(ratio) + " - Tendencia: " + tendencia)
-    f.close()
+def get_timedelta(time_amount):
+    return timedelta(minutes=time_amount) if c.test else dateutil.relativedelta.relativedelta(months=time_amount)
 
-    print('SERVER INFO: KPI was updated')
+
+def update_kpi():
+    if c.test or datetime.now().day == 1:
+        f = open("kpi.txt", "a+")
+        ratio, tendencia = kpi()
+        f.write(
+            "Fecha: " + datetime.now().strftime("%B (%Y)") + " - Ratio: " + str(
+                ratio) + " - Tendencia: " + tendencia + "\n")
+        f.close()
+
+        print('SERVER INFO: KPI was updated')
