@@ -3,7 +3,6 @@ import random
 import socket
 import ssl
 import _thread
-import logging
 
 import db
 import schedule
@@ -43,16 +42,16 @@ def threaded_client(connection):
             if user_is_valid and sign_is_valid and order_is_valid:
                 db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
                                 client_number, 1)
-                print('{Signature: ' + signature + ', Order: ' + order + '}')
+                print('INFO: Petición correcta {Firma: ' + signature + ', Petición: ' + order + '}')
                 connection.sendall(bytes('Peticion OK\r\n', 'utf-8'))
             else:
                 db.insert_order(beds_number, tables_number, chairs_number, armchairs_number, datetime.now().timestamp(),
                                 client_number, 0)
-                print(ERROR_MSG)
+                print('INFO: ' + ERROR_MSG)
                 connection.sendall(bytes(ERROR_MSG + '\r\n', 'utf-8'))
         else:
             db.insert_order(None, None, None, None, datetime.now().timestamp(), None, 0)
-            print(ERROR_MSG)
+            print('INFO: ' + ERROR_MSG)
             connection.sendall(bytes(ERROR_MSG + '\r\n', 'utf-8'))
         break
 
@@ -65,13 +64,13 @@ def tls13_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((c.server, c.port))
         s.listen(1)
-        print('Server up, waiting for a connection')
+        print('INFO: Servidor activo, esperando conexión')
         with context.wrap_socket(s, server_side=True) as ssock:
             while True:
                 connection, a = ssock.accept()
-                logging.info('Received connection from ' + str(a))
+                print('INFO: Conexión recibida: ' + str(a))
                 _thread.start_new_thread(threaded_client, (connection,))
-                logging.info('Closing connection')
+                print('INFO: Cerrando conexión')
 
 
 def call_kpi():
